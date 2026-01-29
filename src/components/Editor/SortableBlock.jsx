@@ -10,6 +10,7 @@ import { cn } from "../../utils/cn";
 export function SortableBlock({
     block,
     isActive,
+    isSelected,
     isFirstBlock,
     isSingleBlock,
     onContentChange,
@@ -35,7 +36,11 @@ export function SortableBlock({
         <div
             ref={setNodeRef}
             style={style}
-            className={cn("relative group", isDragging && "z-50 opacity-50")}
+            className={cn(
+                "relative group",
+                isDragging && "z-50 opacity-50",
+                isSelected && "ring-2 ring-blue-500 rounded-lg bg-blue-50/30"
+            )}
         >
             {/* Drag Handle */}
             <BlockHandle

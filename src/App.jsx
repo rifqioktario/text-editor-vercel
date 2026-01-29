@@ -2,9 +2,16 @@ import { useEffect, useCallback } from "react";
 import { Editor } from "./components/Editor/Editor";
 import { Sidebar } from "./components/Sidebar/Sidebar";
 import { TopBar } from "./components/TopBar/TopBar";
+import { ToastContainer } from "./components/Toast/Toast";
 import { useDocumentsStore } from "./stores/documentsStore";
 import { useEditorStore } from "./stores/editorStore";
+import { useToastStore } from "./stores/toastStore";
 import * as storage from "./services/documentStorage";
+import {
+    downloadAsMarkdown,
+    copyAsMarkdown,
+    copyAsPlainText
+} from "./services/markdownSerializer";
 import { cn } from "./utils/cn";
 
 function App() {
@@ -26,6 +33,7 @@ function App() {
     } = useDocumentsStore();
 
     const { document: editorDocument, loadDocument } = useEditorStore();
+    const { showToast } = useToastStore();
 
     // Get active document data
     const activeDocument = documents.find((d) => d.id === activeDocumentId);
@@ -111,11 +119,27 @@ function App() {
         [activeDocumentId, duplicateDocument]
     );
 
-    // Handle export (placeholder for now)
-    const handleExport = useCallback(() => {
-        // TODO: Implement export functionality
-        alert("Export feature coming soon!");
-    }, []);
+    // Export handlers
+    const handleExportDownload = useCallback(() => {
+        if (editorDocument) {
+            downloadAsMarkdown(editorDocument);
+            showToast("Downloaded as Markdown", "success");
+        }
+    }, [editorDocument, showToast]);
+
+    const handleExportCopyMarkdown = useCallback(async () => {
+        if (editorDocument) {
+            await copyAsMarkdown(editorDocument);
+            showToast("Copied as Markdown", "success");
+        }
+    }, [editorDocument, showToast]);
+
+    const handleExportCopyPlainText = useCallback(async () => {
+        if (editorDocument) {
+            await copyAsPlainText(editorDocument);
+            showToast("Copied as plain text", "success");
+        }
+    }, [editorDocument, showToast]);
 
     // Create first document if none exist
     useEffect(() => {
@@ -166,7 +190,9 @@ function App() {
                     onNewDocument={createDocument}
                     onDelete={() => handleDelete(activeDocumentId)}
                     onDuplicate={() => handleDuplicate(activeDocumentId)}
-                    onExport={handleExport}
+                    onExportDownload={handleExportDownload}
+                    onExportCopyMarkdown={handleExportCopyMarkdown}
+                    onExportCopyPlainText={handleExportCopyPlainText}
                 />
 
                 {/* Editor */}
@@ -199,6 +225,9 @@ function App() {
                     )}
                 </main>
             </div>
+
+            {/* Toast Container */}
+            <ToastContainer />
         </div>
     );
 }

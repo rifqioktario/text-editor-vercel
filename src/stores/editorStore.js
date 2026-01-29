@@ -24,6 +24,10 @@ export const useEditorStore = create(
             focus: { blockId: null, offset: 0 }
         },
 
+        // Selection state for Ctrl+A
+        selectionLevel: 0, // 0: none, 1: block content, 2: block, 3: all blocks
+        selectedBlockIds: [], // Array of selected block IDs
+
         // UI State
         isSlashMenuOpen: false,
         slashMenuPosition: { x: 0, y: 0 },
@@ -34,6 +38,156 @@ export const useEditorStore = create(
             past: [],
             future: []
         },
+        maxHistorySize: 50,
+
+        // ========== History Actions ==========
+
+        /**
+         * Save current state to history (call before making changes)
+         */
+        saveToHistory: () => {
+            set((state) => {
+                // Deep clone current blocks
+                const snapshot = {
+                    blocks: JSON.parse(JSON.stringify(state.document.blocks)),
+                    activeBlockId: state.activeBlockId,
+                    timestamp: Date.now()
+                };
+
+                state.history.past.push(snapshot);
+
+                // Limit history size
+                if (state.history.past.length > state.maxHistorySize) {
+                    state.history.past.shift();
+                }
+
+                // Clear future on new action
+                state.history.future = [];
+            });
+        },
+
+        /**
+         * Undo last action
+         */
+        undo: () => {
+            const { history } = get();
+            if (history.past.length === 0) return;
+
+            set((state) => {
+                // Save current state to future
+                const currentSnapshot = {
+                    blocks: JSON.parse(JSON.stringify(state.document.blocks)),
+                    activeBlockId: state.activeBlockId,
+                    timestamp: Date.now()
+                };
+                state.history.future.unshift(currentSnapshot);
+
+                // Restore from past
+                const previousState = state.history.past.pop();
+                state.document.blocks = previousState.blocks;
+                state.activeBlockId = previousState.activeBlockId;
+                state.document.updatedAt = new Date().toISOString();
+            });
+        },
+
+        /**
+         * Redo previously undone action
+         */
+        redo: () => {
+            const { history } = get();
+            if (history.future.length === 0) return;
+
+            set((state) => {
+                // Save current state to past
+                const currentSnapshot = {
+                    blocks: JSON.parse(JSON.stringify(state.document.blocks)),
+                    activeBlockId: state.activeBlockId,
+                    timestamp: Date.now()
+                };
+                state.history.past.push(currentSnapshot);
+
+                // Restore from future
+                const nextState = state.history.future.shift();
+                state.document.blocks = nextState.blocks;
+                state.activeBlockId = nextState.activeBlockId;
+                state.document.updatedAt = new Date().toISOString();
+            });
+        },
+
+        // ========== Selection Actions ==========
+
+        /**
+         * Cycle selection level (for Ctrl+A)
+         */
+        cycleSelection: () => {
+            set((state) => {
+                const currentLevel = state.selectionLevel;
+                const blocks = state.document.blocks;
+
+                if (currentLevel === 0) {
+                    // Level 1: Select content in current block (browser handles this)
+                    state.selectionLevel = 1;
+                } else if (currentLevel === 1) {
+                    // Level 2: Select current block
+                    state.selectionLevel = 2;
+                    if (state.activeBlockId) {
+                        state.selectedBlockIds = [state.activeBlockId];
+                    }
+                } else if (currentLevel === 2) {
+                    // Level 3: Select all blocks
+                    state.selectionLevel = 3;
+                    state.selectedBlockIds = blocks.map((b) => b.id);
+                } else {
+                    // Reset to level 1
+                    state.selectionLevel = 1;
+                    state.selectedBlockIds = [];
+                }
+            });
+        },
+
+        /**
+         * Clear selection
+         */
+        clearSelection: () => {
+            set((state) => {
+                state.selectionLevel = 0;
+                state.selectedBlockIds = [];
+            });
+        },
+
+        /**
+         * Delete selected blocks
+         */
+        deleteSelectedBlocks: () => {
+            const { selectedBlockIds } = get();
+            if (selectedBlockIds.length === 0) return;
+
+            get().saveToHistory();
+
+            set((state) => {
+                state.document.blocks = state.document.blocks.filter(
+                    (b) => !state.selectedBlockIds.includes(b.id)
+                );
+
+                // Ensure at least one block remains
+                if (state.document.blocks.length === 0) {
+                    state.document.blocks = [
+                        {
+                            id: crypto.randomUUID(),
+                            type: BLOCK_TYPES.PARAGRAPH,
+                            content: "",
+                            properties: {}
+                        }
+                    ];
+                }
+
+                // Set active to first remaining block
+                state.activeBlockId = state.document.blocks[0].id;
+                state.selectedBlockIds = [];
+                state.selectionLevel = 0;
+                state.document.updatedAt = new Date().toISOString();
+            });
+        },
 
         // ========== Block Actions ==========
 
@@ -43,6 +197,11 @@ export const useEditorStore = create(
         setActiveBlock: (blockId) => {
             set((state) => {
                 state.activeBlockId = blockId;
+                // Clear selection when focusing a new block
+                if (state.selectionLevel > 0) {
+                    state.selectionLevel = 0;
+                    state.selectedBlockIds = [];
+                }
             });
         },
 
@@ -114,6 +273,7 @@ export const useEditorStore = create(
          * Delete a block by ID
          */
         deleteBlock: (blockId) => {
+            get().saveToHistory();
             set((state) => {
                 const blocks = state.document.blocks;
                 const index = findBlockIndex(blocks, blockId);
@@ -133,6 +293,7 @@ export const useEditorStore = create(
          * Split a block at cursor position (for Enter key)
          */
         splitBlock: (blockId, cursorPosition) => {
+            get().saveToHistory();
             set((state) => {
                 const blocks = state.document.blocks;
                 const index = findBlockIndex(blocks, blockId);
@@ -157,6 +318,7 @@ export const useEditorStore = create(
          * Merge current block with previous block (for Backspace at start)
          */
         mergeWithPreviousBlock: (blockId) => {
+            get().saveToHistory();
             set((state) => {
                 const blocks = state.document.blocks;
                 const index = findBlockIndex(blocks, blockId);
@@ -183,6 +345,7 @@ export const useEditorStore = create(
          * Convert a block to a different type
          */
         convertBlockType: (blockId, newType, newContent = null) => {
+            get().saveToHistory();
             set((state) => {
                 const blocks = state.document.blocks;
                 const block = blocks.find((b) => b.id === blockId);
@@ -202,6 +365,7 @@ export const useEditorStore = create(
          * Move a block to a new position
          */
         moveBlock: (blockId, toIndex) => {
+            get().saveToHistory();
             set((state) => {
                 const blocks = state.document.blocks;
                 const fromIndex = findBlockIndex(blocks, blockId);
@@ -371,6 +535,32 @@ export const useEditorStore = create(
          */
         getBlockIndex: (blockId) => {
             return findBlockIndex(get().document.blocks, blockId);
+        },
+
+        /**
+         * Insert multiple blocks at a position (for paste)
+         */
+        insertBlocksAtPosition: (afterBlockId, newBlocks) => {
+            if (!newBlocks || newBlocks.length === 0) return;
+
+            set((state) => {
+                const blocks = state.document.blocks;
+                const index = afterBlockId
+                    ? findBlockIndex(blocks, afterBlockId)
+                    : blocks.length - 1;
+
+                if (index !== -1) {
+                    // Insert all new blocks after the specified position
+                    blocks.splice(index + 1, 0, ...newBlocks);
+                    // Set active to last inserted block
+                    state.activeBlockId = newBlocks[newBlocks.length - 1].id;
+                } else {
+                    blocks.push(...newBlocks);
+                    state.activeBlockId = newBlocks[newBlocks.length - 1].id;
+                }
+
+                state.document.updatedAt = new Date().toISOString();
+            });
         },
 
         /**

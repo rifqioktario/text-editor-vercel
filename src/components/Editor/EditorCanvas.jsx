@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import {
     DndContext,
     closestCenter,
@@ -17,6 +17,7 @@ import { Block } from "./Block";
 import { SlashMenu } from "./SlashMenu";
 import { cn } from "../../utils/cn";
 import { BLOCK_TYPES } from "../../constants/BLOCK_TYPES";
+import { parseMarkdown } from "../../services/markdownParser";
 
 /**
  * EditorCanvas - Main editing area that renders all blocks
@@ -33,7 +34,17 @@ export function EditorCanvas() {
         convertBlockType,
         moveBlock,
         indentBlock,
-        outdentBlock
+        outdentBlock,
+        insertBlocksAtPosition,
+        // Undo/Redo
+        undo,
+        redo,
+        // Selection
+        selectionLevel,
+        selectedBlockIds,
+        cycleSelection,
+        clearSelection,
+        deleteSelectedBlocks
     } = useEditorStore();
 
     const blocks = document.blocks;
@@ -45,6 +56,105 @@ export function EditorCanvas() {
         filter: "",
         blockId: null
     });
+
+    // Keyboard shortcuts for undo/redo/selection
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+            const modKey = isMac ? e.metaKey : e.ctrlKey;
+
+            // Ctrl+Z / Cmd+Z = Undo
+            if (modKey && e.key === "z" && !e.shiftKey) {
+                e.preventDefault();
+                undo();
+                return;
+            }
+
+            // Ctrl+Y or Ctrl+Shift+Z = Redo
+            if (modKey && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
+                e.preventDefault();
+                redo();
+                return;
+            }
+
+            // Ctrl+A = Progressive selection
+            if (modKey && e.key === "a") {
+                e.preventDefault();
+                cycleSelection();
+                return;
+            }
+
+            // Delete/Backspace when blocks are selected
+            if (
+                (e.key === "Delete" || e.key === "Backspace") &&
+                selectionLevel >= 2
+            ) {
+                e.preventDefault();
+                deleteSelectedBlocks();
+                return;
+            }
+
+            // Escape clears selection
+            if (e.key === "Escape" && selectionLevel > 0) {
+                clearSelection();
+                return;
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [
+        undo,
+        redo,
+        cycleSelection,
+        clearSelection,
+        deleteSelectedBlocks,
+        selectionLevel
+    ]);
+
+    /**
+     * Detect if pasted text is Markdown
+     */
+    const isMarkdownText = useCallback((text) => {
+        if (!text) return false;
+        // Check for common Markdown patterns
+        const mdPatterns = [
+            /^#{1,6}\s/m, // Headings
+            /^>\s/m, // Blockquote
+            /^-\s\[([ xX])\]/m, // Task items
+            /^```/m, // Code blocks
+            /^---$/m, // Horizontal rules
+            /\*\*[^*]+\*\*/, // Bold
+            /\*[^*]+\*/, // Italic
+            /\[.+\]\(.+\)/, // Links
+            /!\[.*\]\(.+\)/ // Images
+        ];
+        return mdPatterns.some((pattern) => pattern.test(text));
+    }, []);
+
+    /**
+     * Handle paste event to detect and parse Markdown
+     */
+    const handlePaste = useCallback(
+        (e) => {
+            const clipboardText = e.clipboardData.getData("text/plain");
+
+            // Only process if it looks like Markdown with multiple patterns
+            if (clipboardText && isMarkdownText(clipboardText)) {
+                e.preventDefault();
+
+                // Parse the Markdown into blocks
+                const parsed = parseMarkdown(clipboardText);
+
+                if (parsed.blocks && parsed.blocks.length > 0) {
+                    // Insert the blocks after the current active block
+                    insertBlocksAtPosition(activeBlockId, parsed.blocks);
+                }
+            }
+            // If not Markdown, let the default paste behavior work
+        },
+        [activeBlockId, insertBlocksAtPosition, isMarkdownText]
+    );
 
     // Handle content changes and check for slash command and Markdown shortcuts
     const handleContentChange = useCallback(
@@ -339,6 +449,7 @@ export function EditorCanvas() {
                     "cursor-text"
                 )}
                 onClick={handleCanvasClick}
+                onPaste={handlePaste}
             >
                 <SortableContext
                     items={blocks.map((b) => b.id)}
@@ -349,6 +460,7 @@ export function EditorCanvas() {
                             key={block.id}
                             block={block}
                             isActive={activeBlockId === block.id}
+                            isSelected={selectedBlockIds.includes(block.id)}
                             isFirstBlock={index === 0}
                             isSingleBlock={blocks.length === 1}
                             onContentChange={handleContentChange}

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
     FileText,
     Settings,
@@ -8,7 +8,9 @@ import {
     SquarePen,
     Trash2,
     Copy,
-    Upload
+    Download,
+    Clipboard,
+    FileText as FileTextIcon
 } from "lucide-react";
 import { cn } from "../../utils/cn";
 
@@ -25,13 +27,17 @@ export function TopBar({
     onNewDocument,
     onDelete,
     onDuplicate,
-    onExport
+    onExportDownload,
+    onExportCopyMarkdown,
+    onExportCopyPlainText
 }) {
     const [isGearOpen, setIsGearOpen] = useState(false);
+    const [isShareOpen, setIsShareOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editTitle, setEditTitle] = useState(title);
     const inputRef = useRef(null);
     const gearRef = useRef(null);
+    const shareRef = useRef(null);
 
     // Update local title when prop changes
     useEffect(() => {
@@ -46,11 +52,14 @@ export function TopBar({
         }
     }, [isEditing]);
 
-    // Close gear menu on outside click
+    // Close menus on outside click
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (gearRef.current && !gearRef.current.contains(e.target)) {
                 setIsGearOpen(false);
+            }
+            if (shareRef.current && !shareRef.current.contains(e.target)) {
+                setIsShareOpen(false);
             }
         };
         document.addEventListener("mousedown", handleClickOutside);
@@ -142,7 +151,10 @@ export function TopBar({
                 {/* Gear Menu */}
                 <div ref={gearRef} className="relative">
                     <button
-                        onClick={() => setIsGearOpen(!isGearOpen)}
+                        onClick={() => {
+                            setIsGearOpen(!isGearOpen);
+                            setIsShareOpen(false);
+                        }}
                         className={cn(
                             "w-8 h-8 rounded-lg",
                             "flex items-center justify-center",
@@ -158,7 +170,7 @@ export function TopBar({
                         />
                     </button>
 
-                    {/* Dropdown */}
+                    {/* Gear Dropdown */}
                     <AnimatePresence>
                         {isGearOpen && (
                             <motion.div
@@ -169,7 +181,7 @@ export function TopBar({
                                 className={cn(
                                     "absolute right-0 top-full mt-2 z-50",
                                     "w-56 py-1.5",
-                                    "bg-white/80 backdrop-blur-xl",
+                                    "bg-white/90 backdrop-blur-xl",
                                     "rounded-xl shadow-xl shadow-black/10",
                                     "border border-black/5"
                                 )}
@@ -226,16 +238,6 @@ export function TopBar({
                                     }}
                                 />
 
-                                {/* Export */}
-                                <MenuItem
-                                    icon={Upload}
-                                    label="Export"
-                                    onClick={() => {
-                                        onExport?.();
-                                        setIsGearOpen(false);
-                                    }}
-                                />
-
                                 {/* Divider */}
                                 <div className="my-1.5 mx-3 border-t border-black/5" />
 
@@ -263,19 +265,78 @@ export function TopBar({
                     </AnimatePresence>
                 </div>
 
-                {/* Share Button */}
-                <button
-                    className={cn(
-                        "w-8 h-8 rounded-lg",
-                        "flex items-center justify-center",
-                        "text-gray-500 hover:text-gray-700",
-                        "hover:bg-black/5",
-                        "transition-colors duration-100"
-                    )}
-                    title="Share"
-                >
-                    <Share className="w-[18px] h-[18px]" strokeWidth={1.5} />
-                </button>
+                {/* Share/Export Menu */}
+                <div ref={shareRef} className="relative">
+                    <button
+                        onClick={() => {
+                            setIsShareOpen(!isShareOpen);
+                            setIsGearOpen(false);
+                        }}
+                        className={cn(
+                            "w-8 h-8 rounded-lg",
+                            "flex items-center justify-center",
+                            "text-gray-500 hover:text-gray-700",
+                            "hover:bg-black/5",
+                            "transition-colors duration-100",
+                            isShareOpen && "bg-black/5 text-gray-700"
+                        )}
+                        title="Export"
+                    >
+                        <Share
+                            className="w-[18px] h-[18px]"
+                            strokeWidth={1.5}
+                        />
+                    </button>
+
+                    {/* Share Dropdown */}
+                    <AnimatePresence>
+                        {isShareOpen && (
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                                transition={{ duration: 0.12 }}
+                                className={cn(
+                                    "absolute right-0 top-full mt-2 z-50",
+                                    "w-52 py-1.5",
+                                    "bg-white/90 backdrop-blur-xl",
+                                    "rounded-xl shadow-xl shadow-black/10",
+                                    "border border-black/5"
+                                )}
+                            >
+                                {/* Download as Markdown */}
+                                <MenuItem
+                                    icon={Download}
+                                    label="Download as .md"
+                                    onClick={() => {
+                                        onExportDownload?.();
+                                        setIsShareOpen(false);
+                                    }}
+                                />
+
+                                {/* Copy as Markdown */}
+                                <MenuItem
+                                    icon={Clipboard}
+                                    label="Copy as Markdown"
+                                    onClick={() => {
+                                        onExportCopyMarkdown?.();
+                                        setIsShareOpen(false);
+                                    }}
+                                />
+
+                                {/* Copy as Plain Text */}
+                                <MenuItem
+                                    icon={FileTextIcon}
+                                    label="Copy as Plain Text"
+                                    onClick={() => {
+                                        onExportCopyPlainText?.();
+                                        setIsShareOpen(false);
+                                    }}
+                                />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
             </div>
         </header>
     );

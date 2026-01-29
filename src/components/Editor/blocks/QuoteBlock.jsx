@@ -18,7 +18,7 @@ export function QuoteBlock({
     // Set initial content only on mount
     useEffect(() => {
         if (isInitialMount.current && contentRef.current) {
-            contentRef.current.textContent = content;
+            contentRef.current.innerHTML = content;
             isInitialMount.current = false;
         }
     }, [content]);
@@ -39,7 +39,7 @@ export function QuoteBlock({
     // Handle input changes
     const handleInput = useCallback(
         (e) => {
-            const newContent = e.currentTarget.textContent || "";
+            const newContent = e.currentTarget.innerHTML || "";
             onContentChange(id, newContent);
         },
         [id, onContentChange]
