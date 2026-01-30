@@ -94,7 +94,7 @@ export function Block({
                         onFocus={onFocus}
                         onKeyDown={onKeyDown}
                         onUpdate={(updatedBlock) => {
-                            onPropertiesChange?.(updatedBlock.properties);
+                            onPropertiesChange?.(id, updatedBlock.properties);
                         }}
                     />
                 );
@@ -107,7 +107,7 @@ export function Block({
                         onFocus={onFocus}
                         onKeyDown={onKeyDown}
                         onUpdate={(updatedBlock) => {
-                            onPropertiesChange?.(updatedBlock.properties);
+                            onPropertiesChange?.(id, updatedBlock.properties);
                         }}
                     />
                 );
@@ -120,7 +120,7 @@ export function Block({
                         onFocus={onFocus}
                         onKeyDown={onKeyDown}
                         onUpdate={(updatedBlock) => {
-                            onPropertiesChange?.(updatedBlock.properties);
+                            onPropertiesChange?.(id, updatedBlock.properties);
                         }}
                     />
                 );

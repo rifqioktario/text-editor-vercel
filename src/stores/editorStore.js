@@ -308,12 +308,25 @@ export const useEditorStore = create(
                 const blocks = state.document.blocks;
                 const index = findBlockIndex(blocks, blockId);
 
-                if (index !== -1 && blocks.length > 1) {
+                if (index !== -1) {
                     blocks.splice(index, 1);
 
-                    // Set active to previous block or first block
-                    const newActiveIndex = Math.max(0, index - 1);
-                    state.activeBlockId = blocks[newActiveIndex].id;
+                    // If all blocks are deleted, ensure we have at least one paragraph
+                    if (blocks.length === 0) {
+                        const newBlock = {
+                            id: crypto.randomUUID(),
+                            type: BLOCK_TYPES.PARAGRAPH,
+                            content: "",
+                            properties: {}
+                        };
+                        blocks.push(newBlock);
+                        state.activeBlockId = newBlock.id;
+                    } else {
+                        // Set active to previous block or first block
+                        const newActiveIndex = Math.max(0, index - 1);
+                        state.activeBlockId = blocks[newActiveIndex].id;
+                    }
+
                     state.document.updatedAt = new Date().toISOString();
                 }
             });

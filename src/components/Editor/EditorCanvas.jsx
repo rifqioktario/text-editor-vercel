@@ -523,6 +523,16 @@ export function EditorCanvas() {
                 return;
             }
 
+            // If we have selected blocks (via Ctrl+A), delete them on Backspace/Delete
+            if (
+                selectionLevel > 0 &&
+                (e.key === "Backspace" || e.key === "Delete")
+            ) {
+                e.preventDefault();
+                deleteSelectedBlocks();
+                return;
+            }
+
             const selection = window.getSelection();
             const cursorPosition = selection?.anchorOffset || 0;
 
@@ -748,7 +758,9 @@ export function EditorCanvas() {
             indentBlock,
             outdentBlock,
             deleteSelectedBlocks,
-            addBlockAfter
+            addBlockAfter,
+            selectionLevel,
+            document
         ]
     );
 
@@ -760,11 +772,60 @@ export function EditorCanvas() {
                 // Focus the last block or create one if empty
                 if (blocks.length > 0) {
                     const lastBlock = blocks[blocks.length - 1];
-                    setActiveBlock(lastBlock.id);
+                    const containerTypes = [
+                        BLOCK_TYPES.TABS,
+                        BLOCK_TYPES.COLUMNS,
+                        BLOCK_TYPES.GALLERY,
+                        BLOCK_TYPES.DIVIDER,
+                        BLOCK_TYPES.SECTION,
+                        BLOCK_TYPES.IMAGE,
+                        BLOCK_TYPES.LINK
+                    ];
+
+                    // If last block is a container, create a new paragraph below it
+                    // This allows users to "escape" the container at the end of document
+                    if (containerTypes.includes(lastBlock.type)) {
+                        const newBlock = {
+                            id: crypto.randomUUID(),
+                            type: BLOCK_TYPES.PARAGRAPH,
+                            content: "",
+                            properties: {}
+                        };
+                        addBlockAfter(lastBlock.id, newBlock);
+
+                        // Focus new block
+                        setTimeout(() => {
+                            const newEl = document.querySelector(
+                                `[data-block-id="${newBlock.id}"] [contenteditable]`
+                            );
+                            newEl?.focus();
+                        }, 0);
+                    } else {
+                        // Otherwise just focus the last block (e.g. it's a paragraph)
+                        setActiveBlock(lastBlock.id);
+                    }
+                } else {
+                    // Document is empty (blocks.length === 0)
+                    // Create a new paragraph block
+                    const newBlock = {
+                        id: crypto.randomUUID(),
+                        type: BLOCK_TYPES.PARAGRAPH,
+                        content: "",
+                        properties: {}
+                    };
+                    addBlockAfter(null, newBlock); // Pass null to add at start/push
+
+                    // Focus new block
+                    setTimeout(() => {
+                        const newEl = document.querySelector(
+                            `[data-block-id="${newBlock.id}"] [contenteditable]`
+                        );
+                        newEl?.focus();
+                    }, 0);
                 }
             }
         },
-        [blocks, setActiveBlock]
+        [blocks, setActiveBlock, addBlockAfter, document]
     );
 
     // Drag and drop state

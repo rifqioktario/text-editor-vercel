@@ -158,11 +158,17 @@ export function ColumnsBlock({
                         <div
                             className={cn(
                                 "w-full min-h-[120px] px-3 py-2",
-                                "border border-gray-200",
+                                // Removed borders for cleaner look
                                 "rounded-lg",
-                                "hover:border-gray-300 hover:bg-gray-50/50",
                                 "transition-colors duration-150"
                             )}
+                            onClick={(e) => {
+                                // If clicking empty area and no blocks, add one
+                                if (getColumnBlocks(columnIndex).length === 0) {
+                                    e.stopPropagation();
+                                    handleAddBlockToColumn(columnIndex);
+                                }
+                            }}
                         >
                             {/* Column content */}
                             {getColumnBlocks(columnIndex).length > 0 ? (
@@ -178,25 +184,18 @@ export function ColumnsBlock({
                                     )}
                                 </div>
                             ) : (
-                                <button
-                                    onClick={() =>
-                                        handleAddBlockToColumn(columnIndex)
-                                    }
-                                    className={cn(
-                                        "w-full h-full min-h-[100px]",
-                                        "flex flex-col items-center justify-center gap-2",
-                                        "text-gray-400 hover:text-gray-600",
-                                        "border-2 border-dashed border-gray-200",
-                                        "hover:border-gray-300 hover:bg-gray-100",
-                                        "rounded-lg",
-                                        "transition-all duration-150"
-                                    )}
+                                /* Empty State - Invisible Click Area */
+                                <div
+                                    className="w-full h-full min-h-[100px] cursor-text group/empty"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleAddBlockToColumn(columnIndex);
+                                    }}
                                 >
-                                    <Plus className="w-5 h-5" />
-                                    <span className="text-xs font-medium">
-                                        Add content
-                                    </span>
-                                </button>
+                                    <div className="text-gray-300 opacity-0 group-hover/empty:opacity-100 transition-opacity duration-200 pl-1 pt-1 text-sm select-none pointer-events-none">
+                                        Type widely...
+                                    </div>
+                                </div>
                             )}
                         </div>
 
