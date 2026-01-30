@@ -17,7 +17,7 @@ export function TabsBlock({ block, isActive, onFocus, onKeyDown, onUpdate }) {
     const menuRef = useRef(null);
     const containerRef = useRef(null);
 
-    const { addBlockToTab, updateBlockFull } = useEditorStore();
+    const { addBlockToTab, updateBlockFull, deleteBlock } = useEditorStore();
 
     const tabs = block.properties?.tabs || [];
     const activeTabId = block.properties?.activeTabId || tabs[0]?.id;
@@ -351,6 +351,23 @@ export function TabsBlock({ block, isActive, onFocus, onKeyDown, onUpdate }) {
                     </motion.div>
                 </AnimatePresence>
             </div>
+            {/* Delete Block Button (Bottom Right) */}
+            <button
+                className={cn(
+                    "absolute -bottom-3 -right-3 z-10",
+                    "p-1.5 rounded-lg bg-white shadow-sm border border-gray-200",
+                    "text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200",
+                    "opacity-0 group-hover:opacity-100",
+                    "transition-all duration-200",
+                    "pointer-events-none group-hover:pointer-events-auto"
+                )}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    deleteBlock(block.id);
+                }}
+            >
+                <Trash2 className="w-4 h-4" />
+            </button>
         </div>
     );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import {
     DndContext,
     closestCenter,
@@ -47,6 +47,7 @@ export function EditorCanvas() {
         cycleSelection,
         clearSelection,
         deleteSelectedBlocks,
+        deleteBlock,
         extendSelectionDown,
         extendSelectionUp
     } = useEditorStore();
@@ -64,11 +65,19 @@ export function EditorCanvas() {
         blockId: null
     });
 
+    // Track backspace presses for double-tap actions
+    const backspaceTracker = useRef({ id: null, timestamp: 0 });
+
     // Keyboard shortcuts for undo/redo/selection
     useEffect(() => {
         const handleKeyDown = (e) => {
             const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
             const modKey = isMac ? e.metaKey : e.ctrlKey;
+
+            // Reset backspace tracker if any other key is pressed
+            if (e.key !== "Backspace") {
+                backspaceTracker.current = { id: null, timestamp: 0 };
+            }
 
             // Ctrl+Z / Cmd+Z = Undo
             if (modKey && e.key === "z" && !e.shiftKey) {
@@ -722,13 +731,87 @@ export function EditorCanvas() {
 
                 // SPECIAL HANDLER: Backspace on empty Task block -> convert to Paragraph
                 // This allows users to "undo" a task creation easily without deleting the block
-                if (isBlockEmpty && block.type === BLOCK_TYPES.TASK) {
+                if (isBlockEmpty && block?.type === BLOCK_TYPES.TASK) {
                     e.preventDefault();
                     convertBlockType(blockId, BLOCK_TYPES.PARAGRAPH);
                     return;
                 }
 
+                // SPECIAL HANDLER: Backspace in empty Columns block -> delete the columns
+                // If the user hits backspace in an empty column and the entire columns block is empty
+                if (isBlockEmpty && e.key === "Backspace") {
+                    // We might be in a nested block, so we need to find the specific block object
+                    let currentBlock = block;
+                    if (!currentBlock) {
+                        currentBlock = editorDocument.blocks.find(
+                            (b) => b.id === blockId
+                        );
+                    }
+
+                    if (currentBlock?.columnIndex !== undefined) {
+                        // Find parent COLUMNS block
+                        const parentBlock = editorDocument.blocks.find(
+                            (p) =>
+                                p.type === BLOCK_TYPES.COLUMNS &&
+                                p.children?.some((col) =>
+                                    col.blocks?.includes(blockId)
+                                )
+                        );
+
+                        if (parentBlock) {
+                            // Check if the ENTIRE columns block is effectively empty
+                            // (meaning all columns have either no blocks or only empty paragraphs)
+                            const allColumnsEmpty =
+                                parentBlock.children?.every((col) => {
+                                    if (!col.blocks || col.blocks.length === 0)
+                                        return true;
+                                    return col.blocks.every((childId) => {
+                                        const child =
+                                            editorDocument.blocks.find(
+                                                (b) => b.id === childId
+                                            );
+                                        // It's empty if it has no content
+                                        return (
+                                            !child?.content ||
+                                            child.content.trim() === ""
+                                        );
+                                    });
+                                }) ?? true;
+
+                            if (allColumnsEmpty) {
+                                // Double tap detection (within 1000ms)
+                                const now = Date.now();
+                                const isDoubleTap =
+                                    backspaceTracker.current.id === blockId &&
+                                    now - backspaceTracker.current.timestamp <
+                                        1000;
+
+                                if (isDoubleTap) {
+                                    e.preventDefault();
+                                    deleteBlock(parentBlock.id);
+                                    // Reset tracker
+                                    backspaceTracker.current = {
+                                        id: null,
+                                        timestamp: 0
+                                    };
+                                    return;
+                                } else {
+                                    // First tap - register and prevent default
+                                    // User needs to tap again to confirm deletion
+                                    e.preventDefault();
+                                    backspaceTracker.current = {
+                                        id: blockId,
+                                        timestamp: now
+                                    };
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Merge if at start (or block is empty) with no selection
+                // Only for top-level blocks or handled separately
                 if (
                     (cursorAtStart || isBlockEmpty) &&
                     isCollapsed &&
@@ -820,8 +903,10 @@ export function EditorCanvas() {
             indentBlock,
             outdentBlock,
             deleteSelectedBlocks,
+            deleteBlock,
             addBlockAfter,
             selectionLevel,
+            editorDocument,
             convertBlockType
         ]
     );

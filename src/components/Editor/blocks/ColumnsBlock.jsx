@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { GripVertical, Plus } from "lucide-react";
+import { GripVertical, Plus, Trash2 } from "lucide-react";
 import { cn } from "../../../utils/cn";
 import { useEditorStore } from "../../../stores/editorStore";
 import { BLOCK_TYPES } from "../../../constants/BLOCK_TYPES";
@@ -21,7 +21,7 @@ export function ColumnsBlock({
     const startXRef = useRef(0);
     const startWidthsRef = useRef([]);
 
-    const { addBlockToColumn } = useEditorStore();
+    const { addBlockToColumn, deleteBlock } = useEditorStore();
 
     const columnCount = block.properties?.count || 2;
     const widths =
@@ -252,6 +252,24 @@ export function ColumnsBlock({
                     </div>
                 ))}
             </div>
+
+            {/* Delete Block Button (Bottom Right) */}
+            <button
+                className={cn(
+                    "absolute -bottom-3 -right-3 z-10",
+                    "p-1.5 rounded-lg bg-white shadow-sm border border-gray-200",
+                    "text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200",
+                    "opacity-0 group-hover:opacity-100",
+                    "transition-all duration-200",
+                    "pointer-events-none group-hover:pointer-events-auto"
+                )}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    deleteBlock(block.id);
+                }}
+            >
+                <Trash2 className="w-4 h-4" />
+            </button>
         </div>
     );
 }
