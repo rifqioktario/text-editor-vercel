@@ -4,7 +4,6 @@ import {
     AlignLeft,
     CheckSquare,
     Quote,
-    Code,
     Minus,
     Image,
     Link,
@@ -43,12 +42,6 @@ const MENU_ITEMS = [
         label: "Quote",
         icon: Quote,
         type: BLOCK_TYPES.QUOTE
-    },
-    {
-        id: "code",
-        label: "Code",
-        icon: Code,
-        type: BLOCK_TYPES.CODE
     },
     {
         id: "section",

@@ -98,14 +98,16 @@ export function EditorCanvas() {
                     selection.toString().length >=
                         (targetTextContent.length || 0);
 
-                // Check if we're in a container block (Tabs, Columns, Gallery, Section)
+                // Check if we're in a container block (Tabs, Columns, Gallery, Section, etc.)
                 // These should skip text selection and go straight to block selection
                 const isContainerBlock =
                     e.target.closest('[data-block-type="TABS"]') ||
                     e.target.closest('[data-block-type="COLUMNS"]') ||
                     e.target.closest('[data-block-type="GALLERY"]') ||
                     e.target.closest('[data-block-type="SECTION"]') ||
-                    e.target.closest('[data-block-type="DIVIDER"]');
+                    e.target.closest('[data-block-type="DIVIDER"]') ||
+                    e.target.closest('[data-block-type="IMAGE"]') ||
+                    e.target.closest('[data-block-type="LINK"]');
 
                 // For container blocks OR blocks with no text content, skip straight to block selection
                 const isNoTextBlock = targetTextContent.trim().length === 0;
@@ -213,6 +215,14 @@ export function EditorCanvas() {
             ) {
                 e.preventDefault();
                 deleteSelectedBlocks();
+
+                // Focus the first block (which may be a newly created empty paragraph)
+                setTimeout(() => {
+                    const firstBlock = document.querySelector(
+                        "[data-editor-canvas] [data-block-id] [contenteditable]"
+                    );
+                    firstBlock?.focus();
+                }, 0);
                 return;
             }
 
@@ -253,6 +263,66 @@ export function EditorCanvas() {
                 navigator.clipboard.writeText(markdown);
                 deleteSelectedBlocks();
                 return;
+            }
+
+            // Enter key on container blocks - create new paragraph below
+            // This handles the case when the block is active but not focused
+            if (
+                e.key === "Enter" &&
+                !e.shiftKey &&
+                !modKey &&
+                isInEditor &&
+                activeBlockId
+            ) {
+                const activeBlock = blocks.find((b) => b.id === activeBlockId);
+
+                // Check if this is a NESTED block (inside column/tab)
+                const isNestedBlock =
+                    activeBlock?.columnIndex !== undefined ||
+                    activeBlock?.parentTabId !== undefined;
+
+                // Container block types that can't be split
+                const containerTypes = [
+                    BLOCK_TYPES.TABS,
+                    BLOCK_TYPES.COLUMNS,
+                    BLOCK_TYPES.GALLERY,
+                    BLOCK_TYPES.DIVIDER,
+                    BLOCK_TYPES.SECTION,
+                    BLOCK_TYPES.IMAGE,
+                    BLOCK_TYPES.LINK
+                ];
+
+                // Only handle for non-nested container blocks
+                if (
+                    !isNestedBlock &&
+                    containerTypes.includes(activeBlock?.type)
+                ) {
+                    // Check if we're NOT in an editable input (contenteditable, input, textarea)
+                    const isInEditable =
+                        e.target.isContentEditable ||
+                        e.target.tagName === "INPUT" ||
+                        e.target.tagName === "TEXTAREA";
+
+                    if (!isInEditable) {
+                        e.preventDefault();
+                        const newBlock = {
+                            id: crypto.randomUUID(),
+                            type: BLOCK_TYPES.PARAGRAPH,
+                            content: "",
+                            properties: {}
+                        };
+                        addBlockAfter(activeBlockId, newBlock);
+
+                        // Focus the new block
+                        setTimeout(() => {
+                            const newEl = document.querySelector(
+                                `[data-block-id="${newBlock.id}"] [contenteditable]`
+                            );
+                            newEl?.focus();
+                        }, 0);
+                        return;
+                    }
+                }
             }
         };
 
@@ -471,10 +541,49 @@ export function EditorCanvas() {
             if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
 
-                // Get cursor position from selection
+                // Find the current block
+                const block = blocks.find((b) => b.id === blockId);
+
+                // Check if this is a NESTED block (inside column/tab)
+                // Nested blocks should use normal text split behavior
+                const isNestedBlock =
+                    block?.columnIndex !== undefined ||
+                    block?.parentTabId !== undefined;
+
+                // Container block types that can't be split
+                const containerTypes = [
+                    BLOCK_TYPES.TABS,
+                    BLOCK_TYPES.COLUMNS,
+                    BLOCK_TYPES.GALLERY,
+                    BLOCK_TYPES.DIVIDER,
+                    BLOCK_TYPES.SECTION,
+                    BLOCK_TYPES.IMAGE,
+                    BLOCK_TYPES.LINK
+                ];
+
+                // If it's a container block (and NOT nested), add new block after
+                if (!isNestedBlock && containerTypes.includes(block?.type)) {
+                    const newBlock = {
+                        id: crypto.randomUUID(),
+                        type: BLOCK_TYPES.PARAGRAPH,
+                        content: "",
+                        properties: {}
+                    };
+                    addBlockAfter(blockId, newBlock);
+
+                    // Focus the new block's contenteditable
+                    setTimeout(() => {
+                        const newEl = document.querySelector(
+                            `[data-block-id="${newBlock.id}"] [contenteditable]`
+                        );
+                        newEl?.focus();
+                    }, 0);
+                    return;
+                }
+
+                // Regular text block - split at cursor position
                 const range = selection?.getRangeAt(0);
                 const offset = range?.startOffset || 0;
-
                 splitBlock(blockId, offset);
             }
 
@@ -638,7 +747,8 @@ export function EditorCanvas() {
             slashMenu.isOpen,
             indentBlock,
             outdentBlock,
-            deleteSelectedBlocks
+            deleteSelectedBlocks,
+            addBlockAfter
         ]
     );
 

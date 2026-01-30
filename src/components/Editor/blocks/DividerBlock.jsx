@@ -3,16 +3,24 @@ import { cn } from "../../../utils/cn";
 /**
  * DividerBlock - Horizontal line separator
  */
-export function DividerBlock({ id, isActive, onFocus }) {
+export function DividerBlock({ id, isActive, onFocus, onKeyDown }) {
+    const handleKeyDown = (e) => {
+        // Pass to parent for Enter/Backspace handling
+        onKeyDown?.(e, id);
+    };
+
     return (
         <div
+            tabIndex={0}
+            data-block-type="DIVIDER"
+            data-block-id={id}
             className={cn(
-                "py-4 cursor-pointer",
+                "py-4 cursor-pointer outline-none",
                 "group",
                 isActive && "bg-blue-50/30 rounded"
             )}
             onClick={() => onFocus(id)}
-            data-block-id={id}
+            onKeyDown={handleKeyDown}
         >
             <hr
                 className={cn(

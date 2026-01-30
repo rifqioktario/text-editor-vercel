@@ -85,6 +85,7 @@ export function GalleryBlock({
             <div
                 ref={containerRef}
                 tabIndex={0}
+                data-block-type="GALLERY"
                 className={cn(
                     "relative py-4 group outline-none",
                     isActive && "ring-1 ring-gray-300 rounded-lg"

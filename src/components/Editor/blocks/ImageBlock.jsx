@@ -235,6 +235,7 @@ export function ImageBlock({
             <div
                 ref={containerRef}
                 tabIndex={0}
+                data-block-type="IMAGE"
                 className={cn(
                     "relative py-4 group outline-none",
                     isActive && "ring-1 ring-gray-300 rounded-lg"

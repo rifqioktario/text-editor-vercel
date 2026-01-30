@@ -66,6 +66,7 @@ export function Block({
                         id={id}
                         isActive={isActive}
                         onFocus={onFocus}
+                        onKeyDown={onKeyDown}
                     />
                 );
 
