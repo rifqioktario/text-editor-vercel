@@ -99,10 +99,9 @@ function tokenToBlocks(token, blocks = []) {
             break;
 
         case "code":
+            // Code blocks are converted to paragraph (CODE block type removed)
             blocks.push(
-                createBlock(BLOCK_TYPES.CODE, token.text, {
-                    language: token.lang || "javascript"
-                })
+                createBlock(BLOCK_TYPES.PARAGRAPH, `<code>${token.text}</code>`)
             );
             break;
 

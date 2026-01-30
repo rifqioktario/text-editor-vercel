@@ -22,8 +22,7 @@ const BLOCK_TYPE_OPTIONS = [
     { id: "heading2", label: "Heading 2", type: BLOCK_TYPES.HEADING_2 },
     { id: "heading3", label: "Heading 3", type: BLOCK_TYPES.HEADING_3 },
     { id: "body", label: "Body", type: BLOCK_TYPES.PARAGRAPH },
-    { id: "quote", label: "Quote", type: BLOCK_TYPES.QUOTE },
-    { id: "code", label: "Code", type: BLOCK_TYPES.CODE }
+    { id: "quote", label: "Quote", type: BLOCK_TYPES.QUOTE }
 ];
 
 /**

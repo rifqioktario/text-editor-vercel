@@ -25,7 +25,7 @@ import { serializeBlocks } from "../../services/markdownSerializer";
  */
 export function EditorCanvas() {
     const {
-        document,
+        document: editorDocument,
         activeBlockId,
         setActiveBlock,
         updateBlockContent,
@@ -46,11 +46,13 @@ export function EditorCanvas() {
         selectedBlockIds,
         cycleSelection,
         clearSelection,
-        deleteSelectedBlocks
+        deleteSelectedBlocks,
+        extendSelectionDown,
+        extendSelectionUp
     } = useEditorStore();
 
     // Filter out nested blocks (blocks inside columns/tabs) from main canvas
-    const blocks = document.blocks.filter(
+    const blocks = editorDocument.blocks.filter(
         (b) => b.columnIndex === undefined && b.parentTabId === undefined
     );
 
@@ -232,6 +234,20 @@ export function EditorCanvas() {
                 return;
             }
 
+            // Shift+ArrowDown = Extend block selection downward (when in editor)
+            if (e.key === "ArrowDown" && e.shiftKey && !modKey && isInEditor) {
+                e.preventDefault();
+                extendSelectionDown();
+                return;
+            }
+
+            // Shift+ArrowUp = Extend block selection upward (when in editor)
+            if (e.key === "ArrowUp" && e.shiftKey && !modKey && isInEditor) {
+                e.preventDefault();
+                extendSelectionUp();
+                return;
+            }
+
             // Ctrl+C = Copy selected blocks
             if (
                 modKey &&
@@ -339,7 +355,9 @@ export function EditorCanvas() {
         activeBlockId,
         blocks,
         addBlockAfter,
-        moveBlock
+        moveBlock,
+        extendSelectionDown,
+        extendSelectionUp
     ]);
 
     /**
@@ -396,8 +414,7 @@ export function EditorCanvas() {
                 { pattern: /^# $/, type: BLOCK_TYPES.HEADING_1 },
                 { pattern: /^> $/, type: BLOCK_TYPES.QUOTE },
                 { pattern: /^- \[ \] $/, type: BLOCK_TYPES.TASK },
-                { pattern: /^---$/, type: BLOCK_TYPES.DIVIDER },
-                { pattern: /^```$/, type: BLOCK_TYPES.CODE }
+                { pattern: /^---$/, type: BLOCK_TYPES.DIVIDER }
             ];
 
             for (const { pattern, type } of markdownShortcuts) {
@@ -515,7 +532,6 @@ export function EditorCanvas() {
         [setActiveBlock]
     );
 
-    console.log("test");
     // Handle keyboard events
     const handleKeyDown = useCallback(
         (e, blockId) => {
@@ -592,10 +608,47 @@ export function EditorCanvas() {
                     return;
                 }
 
-                // Regular text block - split at cursor position
-                const range = selection?.getRangeAt(0);
-                const offset = range?.startOffset || 0;
-                splitBlock(blockId, offset);
+                // Regular text block - split using DOM Range to preserve formatting
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    const blockEl = e.currentTarget;
+
+                    // Ensure selection is actually inside this block
+                    if (!blockEl.contains(range.commonAncestorContainer)) {
+                        return;
+                    }
+
+                    // Extract HTML BEFORE cursor
+                    const rangeBefore = range.cloneRange();
+                    rangeBefore.collapse(true);
+                    rangeBefore.setStart(blockEl, 0);
+
+                    const div = document.createElement("div");
+                    div.appendChild(rangeBefore.cloneContents());
+                    const htmlBefore = div.innerHTML;
+
+                    // Extract HTML AFTER cursor
+                    const rangeAfter = range.cloneRange();
+                    rangeAfter.collapse(false);
+                    rangeAfter.setEnd(blockEl, blockEl.childNodes.length);
+
+                    div.innerHTML = "";
+                    div.appendChild(rangeAfter.cloneContents());
+                    const htmlAfter = div.innerHTML;
+
+                    // Manually update original block's DOM to prevent duplication
+                    // (contentEditable maintains its own state, React won't re-render it)
+                    blockEl.innerHTML = htmlBefore;
+
+                    // If splitting a task, create another task
+                    const nextType =
+                        block?.type === BLOCK_TYPES.TASK
+                            ? BLOCK_TYPES.TASK
+                            : BLOCK_TYPES.PARAGRAPH;
+
+                    splitBlock(blockId, htmlBefore, htmlAfter, nextType);
+                }
             }
 
             // Backspace at start - Merge with previous or delete container block
@@ -666,6 +719,14 @@ export function EditorCanvas() {
                 }
 
                 const isBlockEmpty = domContent.length === 0;
+
+                // SPECIAL HANDLER: Backspace on empty Task block -> convert to Paragraph
+                // This allows users to "undo" a task creation easily without deleting the block
+                if (isBlockEmpty && block.type === BLOCK_TYPES.TASK) {
+                    e.preventDefault();
+                    convertBlockType(blockId, BLOCK_TYPES.PARAGRAPH);
+                    return;
+                }
 
                 // Merge if at start (or block is empty) with no selection
                 if (
@@ -761,7 +822,7 @@ export function EditorCanvas() {
             deleteSelectedBlocks,
             addBlockAfter,
             selectionLevel,
-            document
+            convertBlockType
         ]
     );
 

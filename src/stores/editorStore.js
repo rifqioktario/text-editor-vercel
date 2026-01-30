@@ -1,11 +1,6 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
-import {
-    createDocument,
-    findBlockIndex,
-    splitBlockAtCursor,
-    mergeBlocks
-} from "../utils/blocks";
+import { createDocument, findBlockIndex, mergeBlocks } from "../utils/blocks";
 import {
     BLOCK_TYPES,
     DEFAULT_BLOCK_PROPERTIES,
@@ -25,9 +20,10 @@ export const useEditorStore = create(
             focus: { blockId: null, offset: 0 }
         },
 
-        // Selection state for Ctrl+A
+        // Selection state for Ctrl+A and Shift+Arrow
         selectionLevel: 0, // 0: none, 1: block content, 2: block, 3: all blocks
         selectedBlockIds: [], // Array of selected block IDs
+        selectionAnchorIndex: null, // Index where Shift+Arrow selection started
 
         // UI State
         isSlashMenuOpen: false,
@@ -158,6 +154,102 @@ export const useEditorStore = create(
             set((state) => {
                 state.selectionLevel = 0;
                 state.selectedBlockIds = [];
+                state.selectionAnchorIndex = null;
+            });
+        },
+
+        /**
+         * Extend block selection downward (Shift+ArrowDown)
+         */
+        extendSelectionDown: () => {
+            set((state) => {
+                // Only consider top-level blocks
+                const topLevelBlocks = state.document.blocks.filter(
+                    (b) =>
+                        b.columnIndex === undefined &&
+                        b.parentTabId === undefined
+                );
+
+                if (topLevelBlocks.length === 0) return;
+
+                // Find current focus index
+                const currentIndex = topLevelBlocks.findIndex(
+                    (b) => b.id === state.activeBlockId
+                );
+                if (currentIndex === -1) return;
+
+                // Initialize anchor if not set
+                if (state.selectionAnchorIndex === null) {
+                    state.selectionAnchorIndex = currentIndex;
+                }
+
+                // Calculate new focus (one block down)
+                const newFocusIndex = Math.min(
+                    currentIndex + 1,
+                    topLevelBlocks.length - 1
+                );
+
+                // Select all blocks between anchor and new focus
+                const startIdx = Math.min(
+                    state.selectionAnchorIndex,
+                    newFocusIndex
+                );
+                const endIdx = Math.max(
+                    state.selectionAnchorIndex,
+                    newFocusIndex
+                );
+
+                state.selectedBlockIds = topLevelBlocks
+                    .slice(startIdx, endIdx + 1)
+                    .map((b) => b.id);
+                state.selectionLevel = 1;
+                state.activeBlockId = topLevelBlocks[newFocusIndex].id;
+            });
+        },
+
+        /**
+         * Extend block selection upward (Shift+ArrowUp)
+         */
+        extendSelectionUp: () => {
+            set((state) => {
+                // Only consider top-level blocks
+                const topLevelBlocks = state.document.blocks.filter(
+                    (b) =>
+                        b.columnIndex === undefined &&
+                        b.parentTabId === undefined
+                );
+
+                if (topLevelBlocks.length === 0) return;
+
+                // Find current focus index
+                const currentIndex = topLevelBlocks.findIndex(
+                    (b) => b.id === state.activeBlockId
+                );
+                if (currentIndex === -1) return;
+
+                // Initialize anchor if not set
+                if (state.selectionAnchorIndex === null) {
+                    state.selectionAnchorIndex = currentIndex;
+                }
+
+                // Calculate new focus (one block up)
+                const newFocusIndex = Math.max(currentIndex - 1, 0);
+
+                // Select all blocks between anchor and new focus
+                const startIdx = Math.min(
+                    state.selectionAnchorIndex,
+                    newFocusIndex
+                );
+                const endIdx = Math.max(
+                    state.selectionAnchorIndex,
+                    newFocusIndex
+                );
+
+                state.selectedBlockIds = topLevelBlocks
+                    .slice(startIdx, endIdx + 1)
+                    .map((b) => b.id);
+                state.selectionLevel = 1;
+                state.activeBlockId = topLevelBlocks[newFocusIndex].id;
             });
         },
 
@@ -204,7 +296,11 @@ export const useEditorStore = create(
             set((state) => {
                 state.activeBlockId = blockId;
                 // Clear selection when focusing a new block
-                if (state.selectionLevel > 0) {
+                // BUT only if we're not in a Shift+Arrow range selection
+                if (
+                    state.selectionLevel > 0 &&
+                    state.selectionAnchorIndex === null
+                ) {
                     state.selectionLevel = 0;
                     state.selectedBlockIds = [];
                 }
@@ -335,7 +431,15 @@ export const useEditorStore = create(
         /**
          * Split a block at cursor position (for Enter key)
          */
-        splitBlock: (blockId, cursorPosition) => {
+        /**
+         * Split a block using explicit HTML content (DOM-based split)
+         */
+        splitBlock: (
+            blockId,
+            contentBefore,
+            contentAfter,
+            newType = BLOCK_TYPES.PARAGRAPH
+        ) => {
             get().saveToHistory();
             set((state) => {
                 const blocks = state.document.blocks;
@@ -343,15 +447,27 @@ export const useEditorStore = create(
                 const block = blocks[index];
 
                 if (block) {
-                    const [blockBefore, blockAfter] = splitBlockAtCursor(
-                        block,
-                        cursorPosition
-                    );
+                    // Update current block content
+                    blocks[index] = {
+                        ...block,
+                        content: contentBefore
+                    };
 
-                    blocks[index] = blockBefore;
-                    blocks.splice(index + 1, 0, blockAfter);
+                    // Create new block with remaining content
+                    const newBlock = {
+                        id: crypto.randomUUID(),
+                        type: newType,
+                        content: contentAfter,
+                        properties:
+                            newType === BLOCK_TYPES.TASK
+                                ? { checked: false }
+                                : {},
+                        createdAt: new Date().toISOString()
+                    };
 
-                    state.activeBlockId = blockAfter.id;
+                    blocks.splice(index + 1, 0, newBlock);
+
+                    state.activeBlockId = newBlock.id;
                     state.document.updatedAt = new Date().toISOString();
                 }
             });

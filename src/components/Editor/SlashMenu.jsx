@@ -16,9 +16,15 @@ import { BLOCK_TYPES } from "../../constants/BLOCK_TYPES";
 import { cn } from "../../utils/cn";
 
 /**
- * Menu items for the slash menu - matching reference design
+ * Menu items for the slash menu - organized by category
+ * Separators are represented by objects with type: 'separator'
  */
 const MENU_ITEMS = [
+    // Text category
+    {
+        type: "category",
+        label: "Text"
+    },
     {
         id: "title",
         label: "Title",
@@ -43,17 +49,16 @@ const MENU_ITEMS = [
         icon: Quote,
         type: BLOCK_TYPES.QUOTE
     },
+    // Layout category
+    {
+        type: "category",
+        label: "Layout"
+    },
     {
         id: "section",
         label: "Section",
         icon: SeparatorHorizontal,
         type: BLOCK_TYPES.SECTION
-    },
-    {
-        id: "gallery",
-        label: "Gallery",
-        icon: Images,
-        type: BLOCK_TYPES.GALLERY
     },
     {
         id: "columns",
@@ -67,17 +72,28 @@ const MENU_ITEMS = [
         icon: PanelTop,
         type: BLOCK_TYPES.TABS
     },
+    // Media category
     {
-        id: "divider",
-        label: "Divider",
-        icon: Minus,
-        type: BLOCK_TYPES.DIVIDER
+        type: "category",
+        label: "Media"
     },
     {
         id: "image",
         label: "Image",
         icon: Image,
         type: BLOCK_TYPES.IMAGE
+    },
+    {
+        id: "gallery",
+        label: "Gallery",
+        icon: Images,
+        type: BLOCK_TYPES.GALLERY
+    },
+    {
+        id: "divider",
+        label: "Divider",
+        icon: Minus,
+        type: BLOCK_TYPES.DIVIDER
     },
     {
         id: "link",
@@ -93,23 +109,30 @@ const MENU_ITEMS = [
 export function SlashMenu({ isOpen, position, filter, onSelect, onClose }) {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const menuRef = useRef(null);
-    const prevFilterRef = useRef(filter);
+    const buttonsRef = useRef({});
 
-    // Filter menu items based on query (only enabled items)
-    const filteredItems = MENU_ITEMS.filter((item) =>
-        item.label.toLowerCase().includes(filter.toLowerCase())
+    // Track previous filter to reset selection on change
+    const [prevFilter, setPrevFilter] = useState(filter);
+
+    // Adjust state during render (recommended pattern to avoid cascading effects)
+    if (filter !== prevFilter) {
+        setPrevFilter(filter);
+        setSelectedIndex(0);
+    }
+
+    // Filter menu items based on query (skip category headers when filtering)
+    const filteredItems = filter
+        ? MENU_ITEMS.filter(
+              (item) =>
+                  item.type !== "category" &&
+                  item.label.toLowerCase().includes(filter.toLowerCase())
+          )
+        : MENU_ITEMS; // Show all including categories when no filter
+
+    // Get selectable items only for keyboard navigation (exclude categories)
+    const selectableItems = filteredItems.filter(
+        (item) => item.type !== "category" && !item.disabled
     );
-
-    // Get enabled items only for keyboard navigation
-    const enabledItems = filteredItems.filter((item) => !item.disabled);
-
-    // Reset selection when filter changes (using effect)
-    useEffect(() => {
-        if (prevFilterRef.current !== filter) {
-            prevFilterRef.current = filter;
-            setSelectedIndex(0);
-        }
-    }, [filter]);
 
     // Handle keyboard navigation
     useEffect(() => {
@@ -120,22 +143,22 @@ export function SlashMenu({ isOpen, position, filter, onSelect, onClose }) {
                 case "ArrowDown":
                     e.preventDefault();
                     setSelectedIndex((prev) =>
-                        prev < enabledItems.length - 1 ? prev + 1 : 0
+                        prev < selectableItems.length - 1 ? prev + 1 : 0
                     );
                     break;
                 case "ArrowUp":
                     e.preventDefault();
                     setSelectedIndex((prev) =>
-                        prev > 0 ? prev - 1 : enabledItems.length - 1
+                        prev > 0 ? prev - 1 : selectableItems.length - 1
                     );
                     break;
                 case "Enter":
                     e.preventDefault();
                     if (
-                        enabledItems[selectedIndex] &&
-                        enabledItems[selectedIndex].type
+                        selectableItems[selectedIndex] &&
+                        selectableItems[selectedIndex].type
                     ) {
-                        onSelect(enabledItems[selectedIndex].type);
+                        onSelect(selectableItems[selectedIndex].type);
                     }
                     break;
                 case "Escape":
@@ -147,7 +170,7 @@ export function SlashMenu({ isOpen, position, filter, onSelect, onClose }) {
 
         document.addEventListener("keydown", handleKeyDown);
         return () => document.removeEventListener("keydown", handleKeyDown);
-    }, [isOpen, selectedIndex, enabledItems, onSelect, onClose]);
+    }, [isOpen, selectedIndex, selectableItems, onSelect, onClose]);
 
     // Click outside to close
     useEffect(() => {
@@ -164,10 +187,17 @@ export function SlashMenu({ isOpen, position, filter, onSelect, onClose }) {
             document.removeEventListener("mousedown", handleClickOutside);
     }, [isOpen, onClose]);
 
-    if (!isOpen || filteredItems.length === 0) return null;
+    // Scroll selected item into view
+    useEffect(() => {
+        if (selectedIndex >= 0 && buttonsRef.current[selectedIndex]) {
+            buttonsRef.current[selectedIndex].scrollIntoView({
+                block: "nearest",
+                behavior: "smooth"
+            });
+        }
+    }, [selectedIndex]);
 
-    // Find enabled index for highlighting
-    let enabledIndex = 0;
+    if (!isOpen || filteredItems.length === 0) return null;
 
     return (
         <div
@@ -184,39 +214,44 @@ export function SlashMenu({ isOpen, position, filter, onSelect, onClose }) {
                 left: position.left
             }}
         >
-            <div className="py-2">
-                {filteredItems.map((item) => {
+            <div className="py-2 overflow-y-auto max-h-[300px]">
+                {filteredItems.map((item, index) => {
+                    if (item.type === "category") {
+                        return (
+                            <div
+                                key={`category-${index}`}
+                                className="px-3 py-1.5 text-xs font-medium text-gray-400 uppercase tracking-wider select-none mt-2 first:mt-0"
+                            >
+                                {item.label}
+                            </div>
+                        );
+                    }
+
                     const Icon = item.icon;
                     const isEnabled = !item.disabled;
-                    const isSelected =
-                        isEnabled && enabledIndex === selectedIndex;
 
-                    if (isEnabled) {
-                        enabledIndex++;
-                    }
+                    // Calculate index in selectableItems list
+                    const itemSelectableIndex = selectableItems.findIndex(
+                        (i) => i.id === item.id
+                    );
+
+                    const isSelected =
+                        isEnabled && itemSelectableIndex === selectedIndex;
 
                     return (
                         <button
                             key={item.id}
+                            ref={(el) =>
+                                (buttonsRef.current[itemSelectableIndex] = el)
+                            }
                             onClick={() => {
                                 if (isEnabled && item.type) {
                                     onSelect(item.type);
                                 }
                             }}
                             onMouseEnter={() => {
-                                if (isEnabled) {
-                                    // Find the enabled index for this item
-                                    let idx = 0;
-                                    for (
-                                        let i = 0;
-                                        i < filteredItems.length;
-                                        i++
-                                    ) {
-                                        if (filteredItems[i].id === item.id)
-                                            break;
-                                        if (!filteredItems[i].disabled) idx++;
-                                    }
-                                    setSelectedIndex(idx);
+                                if (isEnabled && itemSelectableIndex !== -1) {
+                                    setSelectedIndex(itemSelectableIndex);
                                 }
                             }}
                             disabled={item.disabled}
@@ -224,21 +259,23 @@ export function SlashMenu({ isOpen, position, filter, onSelect, onClose }) {
                                 "w-full flex items-center gap-3",
                                 "px-3 py-2 text-left",
                                 "text-sm",
-                                "rounded-lg transition-colors",
+                                "transition-colors",
                                 isEnabled
                                     ? "text-gray-700 cursor-pointer"
                                     : "text-gray-400 cursor-not-allowed",
                                 isSelected && "bg-gray-100"
                             )}
                         >
-                            <Icon
-                                className={cn(
-                                    "w-4 h-4",
-                                    isEnabled
-                                        ? "text-gray-600"
-                                        : "text-gray-400"
-                                )}
-                            />
+                            {Icon && (
+                                <Icon
+                                    className={cn(
+                                        "w-4 h-4",
+                                        isEnabled
+                                            ? "text-gray-600"
+                                            : "text-gray-400"
+                                    )}
+                                />
+                            )}
                             <span>{item.label}</span>
                         </button>
                     );

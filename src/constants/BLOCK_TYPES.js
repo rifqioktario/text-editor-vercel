@@ -9,7 +9,6 @@ export const BLOCK_TYPES = {
     HEADING_3: "heading3",
     TASK: "task",
     QUOTE: "quote",
-    CODE: "code",
     IMAGE: "image",
     DIVIDER: "divider",
     LINK: "link",
@@ -59,12 +58,6 @@ export const BLOCK_TYPE_INFO = {
         description: "Blockquote",
         icon: "Quote",
         shortcut: ">"
-    },
-    [BLOCK_TYPES.CODE]: {
-        label: "Code",
-        description: "Code block with syntax highlighting",
-        icon: "Code",
-        shortcut: "```"
     },
     [BLOCK_TYPES.IMAGE]: {
         label: "Image",
@@ -120,7 +113,6 @@ export const DEFAULT_BLOCK_PROPERTIES = {
     [BLOCK_TYPES.HEADING_3]: {},
     [BLOCK_TYPES.TASK]: { checked: false },
     [BLOCK_TYPES.QUOTE]: {},
-    [BLOCK_TYPES.CODE]: { language: "javascript" },
     [BLOCK_TYPES.IMAGE]: { url: "", alt: "", caption: "" },
     [BLOCK_TYPES.DIVIDER]: {},
     [BLOCK_TYPES.LINK]: { url: "", title: "" },

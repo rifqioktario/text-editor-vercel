@@ -86,13 +86,6 @@ function serializeBlock(block) {
         case BLOCK_TYPES.QUOTE:
             return `> ${content}\n\n`;
 
-        case BLOCK_TYPES.CODE: {
-            const language = block.properties?.language || "";
-            // Code content should not have HTML converted
-            const codeContent = block.content || "";
-            return `\`\`\`${language}\n${codeContent}\n\`\`\`\n\n`;
-        }
-
         case BLOCK_TYPES.DIVIDER:
             return "---\n\n";
 

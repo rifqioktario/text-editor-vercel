@@ -4,7 +4,6 @@ import { HeadingBlock } from "./blocks/HeadingBlock";
 import { TaskBlock } from "./blocks/TaskBlock";
 import { QuoteBlock } from "./blocks/QuoteBlock";
 import { DividerBlock } from "./blocks/DividerBlock";
-import { CodeBlock } from "./blocks/CodeBlock";
 import { SectionBlock } from "./blocks/SectionBlock";
 import { GalleryBlock } from "./blocks/GalleryBlock";
 import { ColumnsBlock } from "./blocks/ColumnsBlock";
@@ -69,9 +68,6 @@ export function Block({
                         onKeyDown={onKeyDown}
                     />
                 );
-
-            case BLOCK_TYPES.CODE:
-                return <CodeBlock {...commonProps} />;
 
             case BLOCK_TYPES.SECTION:
                 return (

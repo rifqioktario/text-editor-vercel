@@ -5,10 +5,12 @@ import {
     Pencil,
     Upload,
     Link,
-    Loader2
+    Loader2,
+    Trash2
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "../../../utils/cn";
+import { useEditorStore } from "../../../stores/editorStore";
 
 /**
  * ImageBlock - Single image display with URL input, file upload, and caption
@@ -20,6 +22,8 @@ export function ImageBlock({
     onKeyDown: parentOnKeyDown,
     onUpdate
 }) {
+    const { deleteBlock } = useEditorStore();
+
     const [isEditing, setIsEditing] = useState(false);
     const [activeTab, setActiveTab] = useState("upload"); // "upload" | "url"
     const [imageUrl, setImageUrl] = useState(block.content || "");
@@ -243,6 +247,28 @@ export function ImageBlock({
                 onClick={onFocus}
                 onKeyDown={handleContainerKeyDown}
             >
+                {/* Delete button - appears on hover */}
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        deleteBlock(block.id);
+                    }}
+                    className={cn(
+                        "absolute top-2 right-2 z-10",
+                        "w-8 h-8 rounded-lg",
+                        "bg-white/90 hover:bg-red-500",
+                        "border border-gray-200 hover:border-red-500",
+                        "flex items-center justify-center",
+                        "text-gray-400 hover:text-white",
+                        "opacity-0 group-hover:opacity-100",
+                        "transition-all duration-150",
+                        "shadow-sm"
+                    )}
+                    title="Delete block"
+                >
+                    <Trash2 className="w-4 h-4" />
+                </button>
+
                 <button
                     onClick={() => handleStartEditing()}
                     className={cn(
