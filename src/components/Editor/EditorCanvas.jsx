@@ -515,6 +515,7 @@ export function EditorCanvas() {
         [setActiveBlock]
     );
 
+    console.log("test");
     // Handle keyboard events
     const handleKeyDown = useCallback(
         (e, blockId) => {
