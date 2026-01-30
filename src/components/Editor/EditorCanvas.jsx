@@ -493,6 +493,9 @@ export function EditorCanvas({ onOpenLinkModal }) {
 
             // Handle Link block separately if modal handler is provided
             if (blockType === BLOCK_TYPES.LINK && onOpenLinkModal) {
+                const targetBlockId = slashMenu.blockId;
+                console.log("Opening Link Modal for block:", targetBlockId);
+
                 // Close the menu first
                 setSlashMenu({
                     isOpen: false,
@@ -502,18 +505,30 @@ export function EditorCanvas({ onOpenLinkModal }) {
                 });
 
                 onOpenLinkModal((url) => {
+                    console.log(
+                        "Link Modal submitted:",
+                        url,
+                        "for block:",
+                        targetBlockId
+                    );
+
+                    if (!targetBlockId) {
+                        console.error("No block ID for link insertion");
+                        return;
+                    }
+
                     // Convert the block type with the provided URL
-                    convertBlockType(slashMenu.blockId, blockType, url);
+                    convertBlockType(targetBlockId, blockType, url);
 
                     // Focus back to the block
                     setTimeout(() => {
                         const blockEl = window.document.querySelector(
-                            `[data-block-id="${slashMenu.blockId}"]`
+                            `[data-block-id="${targetBlockId}"]`
                         );
                         if (blockEl) {
                             blockEl.focus();
                         }
-                    }, 0);
+                    }, 50);
                 });
                 return;
             }
