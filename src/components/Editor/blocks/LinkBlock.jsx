@@ -80,6 +80,40 @@ export function LinkBlock({
         setLinkUrl(block.content || "");
     }, [block.content]);
 
+    // Auto-fetch metadata if content exists but metadata is missing
+    useEffect(() => {
+        const autoFetch = async () => {
+            // Skip if no content, already has title, or currently loading
+            if (!block.content || block.properties?.title || isLoading) return;
+
+            // Validate URL before fetching
+            try {
+                new URL(block.content);
+            } catch {
+                return;
+            }
+
+            setIsLoading(true);
+            try {
+                const metadata = await fetchLinkMetadata(block.content);
+                onUpdate?.({
+                    ...block,
+                    properties: {
+                        ...block.properties,
+                        ...metadata
+                    }
+                });
+            } catch (error) {
+                console.error("Failed to auto-fetch metadata", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        autoFetch();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [block.content, block.properties?.title, onUpdate]);
+
     const handleSaveLink = async () => {
         if (!linkUrl.trim()) return;
 

@@ -146,12 +146,13 @@ export function SectionBlock({
             <button
                 className={cn(
                     "absolute right-0 top-1/2 -translate-y-1/2 z-10",
-                    "p-1.5 rounded-lg bg-white shadow-sm border border-gray-200",
+                    "p-2 rounded-lg bg-white shadow-sm border border-gray-200",
                     "text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200",
                     "opacity-0 group-hover:opacity-100",
                     "transition-all duration-200",
                     "translate-x-2 group-hover:translate-x-0",
-                    "pointer-events-none group-hover:pointer-events-auto"
+                    "pointer-events-none group-hover:pointer-events-auto",
+                    isActive && "opacity-100 pointer-events-auto translate-x-0"
                 )}
                 onClick={(e) => {
                     e.stopPropagation();

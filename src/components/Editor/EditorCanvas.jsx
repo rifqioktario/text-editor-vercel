@@ -23,7 +23,7 @@ import { serializeBlocks } from "../../services/markdownSerializer";
 /**
  * EditorCanvas - Main editing area that renders all blocks
  */
-export function EditorCanvas() {
+export function EditorCanvas({ onOpenLinkModal }) {
     const {
         document: editorDocument,
         activeBlockId,
@@ -491,6 +491,33 @@ export function EditorCanvas() {
         (blockType) => {
             if (!slashMenu.blockId) return;
 
+            // Handle Link block separately if modal handler is provided
+            if (blockType === BLOCK_TYPES.LINK && onOpenLinkModal) {
+                // Close the menu first
+                setSlashMenu({
+                    isOpen: false,
+                    position: { top: 0, left: 0 },
+                    filter: "",
+                    blockId: null
+                });
+
+                onOpenLinkModal((url) => {
+                    // Convert the block type with the provided URL
+                    convertBlockType(slashMenu.blockId, blockType, url);
+
+                    // Focus back to the block
+                    setTimeout(() => {
+                        const blockEl = window.document.querySelector(
+                            `[data-block-id="${slashMenu.blockId}"]`
+                        );
+                        if (blockEl) {
+                            blockEl.focus();
+                        }
+                    }, 0);
+                });
+                return;
+            }
+
             // Convert the block type and clear the slash command
             convertBlockType(slashMenu.blockId, blockType, "");
 
@@ -512,7 +539,7 @@ export function EditorCanvas() {
                 }
             }, 0);
         },
-        [slashMenu.blockId, convertBlockType]
+        [slashMenu.blockId, convertBlockType, onOpenLinkModal]
     );
 
     // Handle slash menu close

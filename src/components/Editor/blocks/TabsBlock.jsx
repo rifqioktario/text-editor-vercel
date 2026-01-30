@@ -355,9 +355,10 @@ export function TabsBlock({ block, isActive, onFocus, onKeyDown, onUpdate }) {
             <button
                 className={cn(
                     "absolute -bottom-3 -right-3 z-10",
-                    "p-1.5 rounded-lg bg-white shadow-sm border border-gray-200",
+                    "p-2 rounded-lg bg-white shadow-sm border border-gray-200",
                     "text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200",
                     "opacity-0 group-hover:opacity-100",
+                    isActive && "opacity-100 pointer-events-auto",
                     "transition-all duration-200",
                     "pointer-events-none group-hover:pointer-events-auto"
                 )}

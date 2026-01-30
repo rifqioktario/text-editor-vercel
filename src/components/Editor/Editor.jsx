@@ -1,8 +1,9 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useEditorStore } from "../../stores/editorStore";
 import { useDocumentsStore } from "../../stores/documentsStore";
 import { EditorCanvas } from "./EditorCanvas";
 import { BottomToolbar } from "./BottomToolbar";
+import { LinkInsertionModal } from "./LinkInsertionModal";
 import { useTextSelection } from "../../hooks/useTextSelection";
 import { cn } from "../../utils/cn";
 import { BLOCK_TYPES } from "../../constants/BLOCK_TYPES";
@@ -20,6 +21,15 @@ export function Editor() {
         addBlockAfter
     } = useEditorStore();
     const { sidebarCollapsed } = useDocumentsStore();
+
+    // Link Modal state
+    const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+    const [linkModalCallback, setLinkModalCallback] = useState(null);
+
+    const handleOpenLinkModal = useCallback((callback) => {
+        setLinkModalCallback(() => callback);
+        setIsLinkModalOpen(true);
+    }, []);
 
     // Track text selection
     const selection = useTextSelection();
@@ -97,10 +107,16 @@ export function Editor() {
     const handleLinkInsert = () => {
         if (!selection.hasSelection) return;
 
-        const url = prompt("Enter URL:", "https://");
-        if (url) {
-            document.execCommand("createLink", false, url);
-        }
+        handleOpenLinkModal((url) => {
+            let validUrl = url;
+            if (
+                !validUrl.startsWith("http://") &&
+                !validUrl.startsWith("https://")
+            ) {
+                validUrl = "https://" + validUrl;
+            }
+            document.execCommand("createLink", false, validUrl);
+        });
     };
 
     // Handle duplicate block
@@ -137,7 +153,7 @@ export function Editor() {
         >
             {/* Editor Canvas */}
             <main className="pb-24">
-                <EditorCanvas />
+                <EditorCanvas onOpenLinkModal={handleOpenLinkModal} />
             </main>
 
             {/* Bottom Toolbar */}
@@ -153,6 +169,16 @@ export function Editor() {
                 onDuplicateBlock={handleDuplicateBlock}
                 onDeleteBlock={handleDeleteBlock}
                 onInsertDivider={handleInsertDivider}
+            />
+
+            <LinkInsertionModal
+                isOpen={isLinkModalOpen}
+                onClose={() => setIsLinkModalOpen(false)}
+                onSubmit={(url) => {
+                    if (linkModalCallback) {
+                        linkModalCallback(url);
+                    }
+                }}
             />
         </div>
     );

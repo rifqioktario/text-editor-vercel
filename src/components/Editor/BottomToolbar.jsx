@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
     LayoutPanelLeft,
     ChevronDown,
@@ -92,6 +92,22 @@ export function BottomToolbar({
 }) {
     const [isBlockTypeOpen, setIsBlockTypeOpen] = useState(false);
     const { isMobile } = useMobile();
+    const triggerRef = useRef(null);
+    const [menuStyle, setMenuStyle] = useState({});
+
+    // Calculate fixed position for mobile dropdown
+    useEffect(() => {
+        if (isBlockTypeOpen && isMobile && triggerRef.current) {
+            const rect = triggerRef.current.getBoundingClientRect();
+            setMenuStyle({
+                position: "fixed",
+                left: rect.left,
+                bottom: window.innerHeight - rect.top + 8,
+                zIndex: 100,
+                width: "160px"
+            });
+        }
+    }, [isBlockTypeOpen, isMobile]);
 
     // Calculate sidebar width for dynamic centering (only on desktop)
     const sidebarWidth = isMobile ? 0 : sidebarCollapsed ? 0 : 240;
@@ -196,6 +212,7 @@ export function BottomToolbar({
                 {/* Block Type Selector */}
                 <div className="relative" data-block-type-dropdown>
                     <button
+                        ref={triggerRef}
                         onClick={() => setIsBlockTypeOpen(!isBlockTypeOpen)}
                         className={cn(
                             "flex items-center gap-1.5 px-2 py-1.5 rounded-lg",
@@ -205,9 +222,11 @@ export function BottomToolbar({
                         )}
                     >
                         <LayoutPanelLeft className="w-[18px] h-[18px] text-gray-600" />
-                        <span className="text-sm text-gray-700 font-medium">
-                            {getBlockTypeLabel(activeBlockType)}
-                        </span>
+                        {!isMobile && (
+                            <span className="text-sm text-gray-700 font-medium whitespace-nowrap">
+                                {getBlockTypeLabel(activeBlockType)}
+                            </span>
+                        )}
                         <ChevronDown
                             className={cn(
                                 "w-4 h-4 text-gray-500 transition-transform",
@@ -219,12 +238,12 @@ export function BottomToolbar({
                     {/* Block Type Dropdown */}
                     {isBlockTypeOpen && (
                         <div
+                            style={isMobile ? menuStyle : undefined}
                             className={cn(
-                                "absolute bottom-full left-0 mb-2",
-                                "w-40 py-1",
-                                "bg-white/90 backdrop-blur-xl",
-                                "border border-gray-200/50 rounded-xl",
-                                "shadow-lg"
+                                "py-1 bg-white/90 backdrop-blur-xl border border-gray-200/50 rounded-xl shadow-lg",
+                                isMobile
+                                    ? "fixed"
+                                    : "absolute bottom-full left-0 mb-2 w-40"
                             )}
                         >
                             {BLOCK_TYPE_OPTIONS.map((option) => (
